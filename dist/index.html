@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07191d" />
+    <meta name="description" content="Arise: a playable 3D real-time strategy game prototype. Gather, build, recruit and reclaim the Shattered Vale." />
+    <title>Arise — The Shattered Vale</title>
+    <script type="module" crossorigin src="./assets/index-CJRD3PCm.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DWTkE7Cy.css">
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="renderCanvas" aria-label="3D real-time strategy battlefield"></canvas>
+      <div class="world-vignette" aria-hidden="true"></div>
+
+      <div id="home" class="home">
+        <nav class="home-nav">
+          <div class="brand"><span class="brand-mark">✦</span><span>ARISE</span></div>
+          <div class="nav-right"><span class="tiny-spark">◈</span> SINGLE-PLAYER CAMPAIGN <span class="nav-divider"></span><span class="prototype-chip">PROTOTYPE 0.3.1 · 10 REGIONS</span></div>
+        </nav>
+        <main class="home-content">
+          <div class="eyebrow"><span class="eyebrow-line"></span> THE FIRST SPARK <span class="eyebrow-line"></span></div>
+          <div class="chapter-tag">CHAPTER I <span> / </span> THE FRACTURED FRONTIER</div>
+          <h1>CLAIM THE <em>VALE.</em><br /><span>FORGE YOUR</span><br />LEGACY.</h1>
+          <p class="home-subtitle">One hero. A handful of workers. A wild frontier to conquer.<br class="desktop-only" /> Gather, build, command — and drive back the corruption.</p>
+          <div class="home-actions">
+            <button id="start-btn" class="primary-button"><span class="play-glyph">▶</span><span>VELG REGION <small>VELG BLANT 10 REGIONER</small></span><span class="button-arrow">↗</span></button>
+            <button id="how-btn" class="secondary-button"><span class="info-circle">?</span> HOW TO PLAY</button>
+          </div>
+          <div class="home-highlights">
+            <div><span class="highlight-icon">♞</span><span><strong>LEAD YOUR HERO</strong><small>Command the front line</small></span></div>
+            <div><span class="highlight-icon">⌂</span><span><strong>BUILD YOUR EMPIRE</strong><small>Gather & construct</small></span></div>
+            <div><span class="highlight-icon">✧</span><span><strong>RECLAIM THE LAND</strong><small>Defeat the rift</small></span></div>
+          </div>
+        </main>
+        <div class="home-right-card">
+          <div class="card-overline"><span class="signal-dot"></span> YOUR FIRST EXPEDITION</div>
+          <p>01 <span>/ 10</span></p>
+          <h2>THE<br />SHATTERED<br />VALE</h2>
+          <div class="short-rule"></div>
+          <span class="right-card-desc">10 playable region layouts · 12 troop types · settlement development.</span>
+          <div class="right-card-footer"><span>◆</span> STORY CAMPAIGN <span>→</span></div>
+        </div>
+        <footer class="home-footer"><span>✧ ARISE // THE FRONTIER AWAITS</span><span>BUILT FOR COMMANDERS, NOT SPECTATORS.</span></footer>
+      </div>
+
+      <div id="hud" class="hud hidden">
+        <header class="topbar">
+          <div class="hud-brand"><span class="brand-mark">✦</span><span class="mini-brand">ARISE</span><span class="header-separator"></span><span class="level-name">01 <span>THE SHATTERED VALE</span></span></div>
+          <div class="resource-strip">
+            <div class="resource"><span class="resource-icon wood-icon">▥</span><span class="resource-amount" id="wood-value">90</span><small>TIMBER</small></div>
+            <div class="resource"><span class="resource-icon stone-icon">◆</span><span class="resource-amount" id="stone-value">65</span><small>AETHER</small></div>
+            <div class="resource"><span class="resource-icon wood-icon">♧</span><span class="resource-amount" id="food-value">100</span><small>FOOD</small></div><div class="resource"><span class="resource-icon army-icon">♞</span><span class="resource-amount" id="army-value">01</span><small>ARMY</small></div>
+          </div>
+          <div class="top-actions"><span class="live-tag"><span class="signal-dot"></span> LIVE MISSION</span><button id="regions-btn" class="square-btn" title="Regionkart" aria-label="Velg region">⌖</button><button id="help-btn" class="square-btn" title="How to play">?</button><button id="pause-btn" class="square-btn" title="Pause (P)">Ⅱ</button></div>
+        </header>
+        <aside class="left-panel panel">
+          <div class="panel-heading"><span class="overline" id="hall-level">RÅDHUS 1/3</span><span class="panel-index">01 / COMMAND</span></div>
+          <h3>Field company</h3>
+          <p class="panel-help">Your army begins with a hero and a worker squad. Recruit reinforcements from military buildings.</p>
+          <button class="unit-card selected" id="hero-card" data-select="hero">
+            <span class="unit-portrait hero-portrait">♞</span>
+            <span class="unit-card-copy"><strong>THE WARDEN</strong><small>Hero <span class="key-hint">1</span></small><span class="hp-track"><span id="hero-hp" class="hp-fill" style="width:100%"></span></span></span>
+            <span class="card-caret">›</span>
+          </button>
+          <button class="unit-card" id="workers-card" data-select="workers">
+            <span class="unit-portrait worker-portrait">⚒</span>
+            <span class="unit-card-copy"><strong>PATHFINDERS</strong><small>Worker squad ×3 <span class="key-hint">2</span></small><span class="hp-track"><span id="workers-hp" class="hp-fill" style="width:100%"></span></span></span>
+            <span class="card-caret">›</span>
+          </button>
+          <button id="select-army" class="select-army">VELG HÆREN · 3</button><div id="army-roster" class="army-roster" aria-label="Rekrutterte tropper"></div><button id="professions-btn" class="select-army">PROFESJONER · HÅNDVERK · SEKK</button><button id="quests-btn" class="select-army">OPPDRAGSJOURNAL</button><p id="materials-summary" class="materials-summary"></p><p id="craft-status" class="craft-status"></p><div class="company-status"><span><span class="mini-dot"></span> ACTIVE COMPANY</span><strong id="company-count">2 UNITS</strong></div>
+          <div class="left-tip"><span class="tip-symbol">✦</span><p><strong>COMMANDER'S TIP</strong><br />Select your workers, then right-click glowing trees or aether crystals to harvest.</p></div>
+        </aside>
+        <aside class="right-panel panel">
+          <div class="panel-heading"><span class="overline">CAMPAIGN OBJECTIVES</span><span class="panel-index">01 / 10</span></div>
+          <h3>The Shattered Vale</h3>
+          <p class="mission-copy">Establish a foothold. Assemble a fighting force. Destroy the corruption rift.</p>
+          <div class="mission-progress"><span id="objective-number">0 / 4 OBJECTIVES</span><span id="objective-percent">0%</span></div>
+          <div class="progress-track"><span id="mission-progress-fill"></span></div>
+          <div id="objective-list" class="objective-list"></div><p id="sidequest-summary" class="sidequest-summary"></p>
+          <div class="world-map-header"><span class="overline">BATTLEFIELD INTEL</span><span class="map-label">◉ LIVE</span></div>
+          <div class="minimap-wrap"><canvas id="minimap" width="320" height="200" aria-label="Clickable battlefield minimap"></canvas><span class="minimap-caption">THE SHATTERED VALE</span></div>
+          <div class="map-legend"><span><i class="legend-ally"></i> ALLIES</span><span><i class="legend-enemy"></i> ENEMIES</span><span><i class="legend-resource"></i> RESOURCES</span></div>
+        </aside>
+        <div class="command-toast-container" id="toast-container" aria-live="polite"></div>
+        <div class="terrain-tooltip hidden" id="terrain-tooltip"></div><button id="vinnie-marker" class="npc-marker hidden">! Vinnie Jonas</button>
+        <div class="camera-tip"><span>W A S D</span> PAN <span>SCROLL</span> ZOOM <span>RIGHT CLICK</span> COMMAND</div>
+        <div class="bottom-dock">
+          <div class="selection-icon" id="selection-icon">♞</div>
+          <div class="selected-info"><span class="overline">CURRENT SELECTION</span><strong id="selection-name">THE WARDEN</strong><small id="selection-desc">Frontline hero • ready for orders</small><div id="selection-stats" class="selection-stats"></div><div class="selection-health"><span id="selected-hp-bar"></span></div></div>
+          <div class="dock-divider"></div>
+          <div class="actions-with-progress"><div class="action-group" id="action-group"></div><div id="production-progress" class="production-progress hidden"><div><span id="production-fill"></span></div><small id="production-timer"></small></div><div id="queue-status" class="queue-status"></div></div>
+          <button class="cancel-command hidden" id="cancel-command">ESC CANCEL</button>
+        </div>
+        <div id="mode-message" class="mode-message hidden">CHOOSE A LOCATION</div>
+      </div>
+
+      <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-scrim"></div>
+        <div class="modal-card">
+          <span class="overline" id="modal-kicker">FIELD MANUAL</span>
+          <h2 id="modal-title">A commander is made, not born.</h2>
+          <div id="modal-content"></div>
+          <div id="modal-actions" class="modal-actions"></div>
+        </div>
+      </div>
+      <div class="screen-fade" id="screen-fade"></div>
+    </div>
+  </body>
+</html>

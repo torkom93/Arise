@@ -111,6 +111,12 @@ export class AriseArt {
    this.house(kind==='castle'?4.4:4,4.6,4.1);
    const corners=kind==='castle'?[-2.6,2.6]:[-2.3];for(const x of corners)for(const z of [-2.5,2.5])this.tower(x,z,kind==='castle'?5.2:5.5);
    this.flag(0,8.8,1);if(kind==='fortifiedChurch'){this.block(0,7.8,-1,.25,2,.25,'gold');this.block(0,8.1,-1,1.4,.25,.25,'gold');}
+  }else if(kind==='house'){
+   this.house(4.4,3.8,2.8);this.barrel(2.5,0,.9);this.block(-2,3.8,1,.65,2.6,.7,'brick');
+  }else if(kind==='kitchen'){
+   this.house(4.4,3.8,2.5);this.block(1.5,3.5,1,.9,5,.9,'brick');
+   this.block(-1.5,.7,-2.5,1.4,1.2,1,'stone');this.orb(-1.5,1.1,-3,.25,'glow');
+   this.round(-1.5,1.5,-2.5,.5,.6,'metal');this.barrel(2.5,0,-1);this.barrel(2.5,0,.2);
   }else if(kind==='farm'){
    this.block(0,.06,0,5.9,.1,5.3,'soil');for(let row=0;row<5;row++){const z=-2+row;this.block(0,.16,z,5.5,.15,.48,'soil');for(let i=0;i<8;i++){const x=-2.3+i*.65;this.block(x,.6,z,.045,.85,.045,'wheat');const seed=this.orb(x+.06,1.03,z,.12,'wheat');seed.scaling.set(.5,1.7,.6);}}
    for(const x of [-2.9,2.9]){this.block(x,.55,0,.14,1.1,5.7,'beam');}this.barrel(2.5,0,2.7);
@@ -155,7 +161,10 @@ export class AriseArt {
     this.block(1.6,1,-2.3,.18,1.5,.18,'beam');const wheel=this.ring(1.6,1.5,-2.3,.65,'metal');wheel.rotation.x=Math.PI/2;
    }else {this.flag(2,6.4,1);for(const x of [-1,1])this.block(x,1.8,-2.5,.07,2,.1,'metal').rotation.z=x*.25;this.barrel(2.25,0,-1.5);}
   }
-  return this.finish(root,true,kind);
+  const meshes=this.finish(root,true,kind);
+  // Keep wall visuals inside their four-cell span so consecutive sections meet.
+  if(kind==='brickWall'||kind==='gate')for(const mesh of meshes)mesh.scaling.x=kind==='gate'?8/8.6:8/8.1;
+  return meshes;
  }
  tree(parent:TransformNode|undefined,x:number,z:number,height:number,pick:boolean,foliage:string,variant:number){
   this.parts=[];const h=height,seed=Math.abs(x*31+z*17+variant*7),broad=variant%4===0;

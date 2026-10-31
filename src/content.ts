@@ -1,10 +1,12 @@
 /** Initial balance values for the expanded prototype; not final campaign tuning. */
 export type Cost = {wood:number; stone:number; food?:number; materials?:Record<string,number>};
-export type BuildingKind = 'barracks'|'tower'|'sanctuary'|'market'|'farm'|'mill'|'miningCamp'|'fishTrap'|'sawMill'|'blacksmith'|'university'|'archeryRange'|'stable'|'siegeWorkshop'|'monastery'|'fortifiedChurch'|'castle'|'dock'|'harbor'|'brickWall'|'gate'|'outpost'|'guardTower'|'bomberTower';
+export type BuildingKind = 'house'|'kitchen'|'barracks'|'tower'|'sanctuary'|'market'|'farm'|'mill'|'miningCamp'|'fishTrap'|'sawMill'|'blacksmith'|'university'|'archeryRange'|'stable'|'siegeWorkshop'|'monastery'|'fortifiedChurch'|'castle'|'dock'|'harbor'|'brickWall'|'gate'|'outpost'|'guardTower'|'bomberTower';
 export type TroopKind = 'guard'|'spearman'|'archer'|'crossbowman'|'scout'|'knight'|'ram'|'catapult'|'monk'|'champion'|'fishingBoat'|'warship';
 export interface BuildingDef {name:string;category:'Economic'|'Research'|'Military'|'Defence';cost:Cost;seconds:number;hall:number;hp:number;icon:string;description:string;armor?:number; damage?:number; range?:number; cooldown?:number; sight?:number; producer?:TroopKind[];upgrade?:BuildingKind;upgradeOnly?:boolean;coastal?:boolean;deposit?:'wood'|'stone';}
 export interface TroopDef {name:string;producer:BuildingKind[];cost:Cost;seconds:number;hp:number;damage:number;speed:number;range:number;cooldown:number;icon:string;role:string;naval?:boolean;healer?:boolean;structureBonus?:number;}
 export const BUILDINGS:Record<BuildingKind,BuildingDef>={
+ house:{name:'House',category:'Economic',cost:{wood:45,stone:10},seconds:10,hall:1,hp:280,icon:'⌂',description:'A completed House adds 4 troop spaces. Town Hall provides 8; maximum 40.'},
+ kitchen:{name:'Kitchen',category:'Economic',cost:{wood:70,stone:25},seconds:12,hall:1,hp:320,icon:'♨',description:'Cooking station for field rations. Uses food and herbs; open Cooking to prepare rations.'},
  brickWall:{name:'Brick Wall',category:'Defence',cost:{wood:10,stone:0,materials:{brick:5}},seconds:10,hall:1,hp:1200,armor:20,icon:'▰',description:'Solid murseksjon som blokkerer landenheter. R roterer ved plassering.'},
  gate:{name:'Gate',category:'Defence',cost:{wood:25,stone:0,materials:{brick:5,plank:3}},seconds:14,hall:1,hp:900,armor:15,icon:'Π',description:'Lukket port blokkerer alle. Velg porten for å åpne eller lukke. R roterer ved plassering.'},
  outpost:{name:'Outpost',category:'Defence',cost:{wood:60,stone:20},seconds:10,hall:1,hp:260,armor:3,sight:25,icon:'⚑',description:'Varsler om fiender innen 25m, maks ett varsel per 20s. Har ingen angrep.'},

@@ -27,7 +27,7 @@ export const RECIPES:Record<string,Recipe>={
  blocks:{name:'Hugg steinblokker',profession:'masonry',level:1,cost:{wood:0,stone:0,materials:{rock:15}},output:'stoneBlock',count:5,seconds:6,xp:10,description:'Steinblokker brukes til Guard Tower.'},
  bars:{name:'Smelt jern',profession:'smithing',level:1,cost:{wood:10,stone:0,materials:{iron:12}},output:'ironBar',count:4,seconds:8,xp:15,description:'Jernbarrer brukes i utstyr og Bomber Tower.'},
  salves:{name:'Bland helbredende salve',profession:'alchemy',level:1,cost:{wood:0,stone:0,materials:{herbs:4}},output:'salve',count:1,seconds:5,xp:10,description:'Bruk på valgt skadet alliert enhet: helbreder 80 HP.'},
- rations:{name:'Tilbered feltrasjoner',profession:'cooking',level:1,cost:{wood:5,stone:0,food:20,materials:{herbs:2}},output:'fieldRations',count:1,seconds:5,xp:10,description:'Bruk fra sekken: gir 40 mat (20 netto etter ingredienser).'},
+ rations:{name:'Tilbered feltrasjoner',profession:'cooking',level:1,cost:{wood:5,stone:0,food:20,materials:{herbs:2}},output:'fieldRations',count:1,seconds:5,xp:10,station:'kitchen',description:'Krever ferdig Kitchen. Bruk fra sekken: gir 40 mat (20 netto etter ingredienser).'},
  weapons:{name:'Smi våpensett',profession:'smithing',level:2,cost:{wood:0,stone:10,materials:{ironBar:3,plank:2}},output:'weaponKit',count:1,seconds:12,xp:20,station:'blacksmith',description:'Krever ferdig Blacksmith. Gir valgt helt eller militærtropp +4 skade, én gang per enhet.'},
  armor:{name:'Smi rustningssett',profession:'smithing',level:3,cost:{wood:0,stone:15,materials:{ironBar:5}},output:'armorKit',count:1,seconds:14,xp:25,station:'blacksmith',description:'Krever ferdig Blacksmith. Gir valgt helt eller militærtropp +5 forsvar, én gang per enhet.'}
 };
@@ -38,7 +38,7 @@ export function professionLevel(xp:number){return XP_THRESHOLDS.filter(t=>Math.m
 export function gatherMultiplier(profession:Profession,state:ProfessionState){return 1+.05*(professionLevel(state[profession])-1);}
 export function recipeLock(recipe:Recipe,state:ProfessionState,stations:BuildingKind[]):string|null{
  if(professionLevel(state[recipe.profession])<recipe.level)return `Krever ${PROFESSIONS[recipe.profession].name} nivå ${recipe.level}`;
- if(recipe.station&&!stations.includes(recipe.station))return 'Krever ferdig Blacksmith';return null;
+ if(recipe.station&&!stations.includes(recipe.station))return 'Krever ferdig '+(recipe.station==='kitchen'?'Kitchen':'Blacksmith');return null;
 }
 export function mitigation(armor:number){return 1-Math.min(.5,Math.max(0,armor)/(Math.max(0,armor)+100));}
 export const QUESTS={

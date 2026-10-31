@@ -1,4 +1,5 @@
 import './style.css';
+import {GRID_SIZE,footprintSize,snapBuilding,overlaps,footprintCells} from './placement';
 import {AriseArt} from './art';
 import {RESOURCE_DEFS, ITEM_NAMES, PROFESSIONS, RECIPES, QUESTS, isResourceKind, newProfessionState, professionLevel, gatherMultiplier, recipeLock, mitigation, newQuestState, XP_THRESHOLDS, type ResourceKind, type ItemKind, type Profession, type QuestKey} from './professions';
 import {barrierDistance,crossesBarrier,type Barrier} from './defences';
@@ -381,7 +382,7 @@ function feedback(message:string,tag='FIELD REPORT') {
   while(outer.childElementCount>3)outer.firstElementChild?.remove();
 }
 const displayNames:Record<Kind,string>={
- vinnie:'Vinnie Jonas',rock:'STEIN',iron:'JERNMALM',clay:'LEIRE',herbs:'URTER',hero:'THE WARDEN',workers:'PATHFINDERS',enemy:'CORRUPTED RAIDER',wood:'ANCIENT TIMBER',stone:'AETHER CRYSTALS',base:'TOWN HALL',rift:'CORRUPTION RIFT',
+ vinnie:'Vinnie Jonas',rock:'STEIN',iron:'JERNMALM',clay:'LEIRE',herbs:'URTER',hero:'THE WARDEN',workers:'WORKERS',enemy:'CORRUPTED RAIDER',wood:'ANCIENT TIMBER',stone:'AETHER CRYSTALS',base:'TOWN HALL',rift:'CORRUPTION RIFT',
  ...Object.fromEntries(Object.entries(BUILDINGS).map(([k,d])=>[k,d.name.toUpperCase()])),
  ...Object.fromEntries(Object.entries(TROOPS).map(([k,d])=>[k,d.name.toUpperCase()]))
 } as Record<Kind,string>;
@@ -451,6 +452,7 @@ function renderActions(){
      actions.push({icon:'◆',name:'Kjøp aether',key:'',cost:'100 ▥ → 60 ◆',fire:()=>trade('wood')});
      actions.push({icon:'▥',name:'Kjøp tømmer',key:'',cost:'100 ◆ → 60 ▥',fire:()=>trade('stone')});
    }
+   if(e.kind==='kitchen')actions.push({icon:'♨',name:'Cooking',key:'',cost:'Tilbered feltrasjoner',fire:showProfessions});
    if(e.kind==='gate')actions.push({icon:'Π',name:e.gateOpen?'Lukk port':'Åpne port',key:'',fire:()=>toggleGate(e)});
    if(e.queue?.length)actions.push({icon:'✕',name:'Avbryt siste',key:'',cost:'Full refusjon',fire:()=>cancelTraining(e)});
  }else if(e.speed>0){
@@ -473,15 +475,15 @@ function showBuildMenu(){
    for(const [kind,def] of Object.entries(BUILDINGS) as [BuildKind,typeof BUILDINGS[BuildKind]][]){
      if(def.category!==category)continue;
      const locked=buildingLock(kind,hallLevel,region.coastal);const button=document.createElement('button');button.className='catalog-card';
-     button.disabled=!!locked||!!def.upgradeOnly;
-     button.innerHTML=`<strong>${def.icon} ${def.name}</strong><small>${def.description}</small><span>${def.upgradeOnly?'Oppgrader fra '+(kind==='harbor'?'Dock':'Monastery'):locked??formatCost(def.cost)+` · ${def.seconds}s`}</span>`;
+     button.disabled=!!locked||!!def.upgradeOnly||!hasFunds(def.cost);
+     button.innerHTML=`<strong>${def.icon} ${def.name}</strong><small>${def.description}</small><span>${def.upgradeOnly?'Oppgrader fra '+(kind==='harbor'?'Dock':'Monastery'):locked??formatCost(def.cost)+` · ${def.seconds}s${hasFunds(def.cost)?'':' · Mangler ressurser'}`}</span>`;
      button.addEventListener('click',()=>{closeModal();startBuilding(kind);});catalog.appendChild(button);
    }
  }
 }
 function setOrderMode(mode:OrderMode) {
   if(!selected() || !gameStarted || paused)return;
-  buildMode=null;orderMode=mode;
+  cancelMode();orderMode=mode;
   $('cancel-command').classList.remove('hidden');
   $('mode-message').classList.remove('hidden');
   $('mode-message').textContent=mode==='gather'?'VELG TØMMER, AETHER, STEIN, JERN, LEIRE ELLER URTER':mode==='attack'?'SELECT A HOSTILE TARGET':'SELECT A DESTINATION';
@@ -492,6 +494,7 @@ function cancelMode(){
   $('cancel-command').classList.add('hidden');
   $('mode-message').classList.add('hidden');
   placementMarker.isVisible=false;
+  disposeBuildPreview();
 }
 function hasFunds(c:Cost){return canAfford({wood,stone,food,materials},c);}
 function pay(c:Cost){wood-=c.wood;stone-=c.stone;food-=c.food??0;for(const [key,n] of Object.entries(c.materials??{}))materials[key]=(materials[key]??0)-n;}
@@ -501,26 +504,23 @@ function isWater(x:number,z:number){return region.coastal&&z>=22;}
 function placementProblem(kind:BuildKind,p:Vector3):string|null{
  const lock=buildingLock(kind,hallLevel,region.coastal);if(lock)return lock;
  if(BUILDINGS[kind].upgradeOnly)return 'Denne bygningen må oppgraderes fra forgjengeren.';
- if(Math.abs(p.x)>40||Math.abs(p.z)>29)return 'For nær kartkanten.';
- if(planarDistance(p,basePos)>42)return 'Bygg innenfor bosetningsradiusen.';
- if(kind==='dock') {if(p.z<19.5||p.z>22)return 'Plasser Dock på strandlinjen (z 19.5–22).';}
- else if(kind==='fishTrap'){if(!isWater(p.x,p.z))return 'Plasser Fish Trap i vannet.';}
- else if(region.coastal&&p.z>18.5)return 'Landbygninger må stå på tørt land.';
+ const area=snapBuilding(kind,p.x,p.z,buildRotation);
+ if(Math.abs(area.x)+area.width/2>40||Math.abs(area.z)+area.depth/2>30)return 'Hele bygget må være innenfor kartkanten.';
+ if(footprintCells(area).some(([x,z])=>Math.hypot(x-basePos.x,z-basePos.z)>42))return 'Hele bygget må være innenfor bosetningsradiusen.';
+ if(kind==='dock') {if(area.z<19.5||area.z>22)return 'Plasser Dock på strandlinjen (z 19.5–22).';}
+ else if(kind==='fishTrap'){if(area.z-area.depth/2<22)return 'Hele Fish Trap må stå i vannet.';}
+ else if(region.coastal&&area.z+area.depth/2>22)return 'Hele landbygget må stå på tørt land.';
  for(const e of entities.values()){
-   const blocking=e.kind==='base'||e.kind==='rift'||isBuildingKind(e.kind)||isResourceKind(e.kind);
-   const radius=e.kind==='base'||e.kind==='rift'?8:isResourceKind(e.kind)?4:6;
-   const bothSegments=['brickWall','gate'].includes(kind)&&['brickWall','gate'].includes(e.kind);
-   if(bothSegments){
-     const angle=buildRotation-e.root.rotation.y,dx=p.x-e.root.position.x,dz=p.z-e.root.position.z;
-     const localX=Math.abs(dx*Math.cos(e.root.rotation.y)-dz*Math.sin(e.root.rotation.y));
-     const localZ=Math.abs(dx*Math.sin(e.root.rotation.y)+dz*Math.cos(e.root.rotation.y));
-     const halfX=4+4*Math.abs(Math.cos(angle))+.7*Math.abs(Math.sin(angle));
-     const halfZ=.7+4*Math.abs(Math.sin(angle))+.7*Math.abs(Math.cos(angle));
-     if(localX<halfX-.25&&localZ<halfZ-.15)return 'Mur eller port overlapper.';
-   }else if(blocking&&planarDistance(e.root.position,p)<radius)return 'Området er opptatt.';
+   const building=e.kind==='base'||e.kind==='rift'||isBuildingKind(e.kind);
+   const resource=isResourceKind(e.kind);
+   if(!building&&!resource&&e.kind!=='vinnie'&&e.speed<=0)continue;
+   const [width,depth]=building?footprintSize(e.kind as BuildingKind|'base'|'rift',e.root.rotation.y):resource?[6,6]:e.kind==='workers'?[4,4]:[2,2];
+   if(overlaps(area,{x:e.root.position.x,z:e.root.position.z,width,depth}))
+    return building?'Rutenettet er opptatt av et bygg eller en byggeplass.':resource?'Rutenettet er opptatt av en ressurs.':'Flytt enheten som står i veien.';
  }
  const deposit=BUILDINGS[kind].deposit;
- if(deposit&&![...entities.values()].some(e=>e.kind===deposit&&(e.amount??0)>0&&planarDistance(e.root.position,p)<=10))return 'Plasser innen 10m fra en passende ressursforekomst.';
+ if(deposit&&![...entities.values()].some(e=>e.kind===deposit&&(e.amount??0)>0&&Math.hypot(e.root.position.x-area.x,e.root.position.z-area.z)<=10))return 'Plasser innen 10m fra en passende ressursforekomst.';
+ if(!hasFunds(costs[kind]))return 'Ikke nok ressurser til å bygge.';
  return null;
 }
 function startBuilding(kind:BuildKind){
@@ -528,27 +528,29 @@ function startBuilding(kind:BuildKind){
  const workers=first('workers');if(!workers){feedback('Arbeiderne er ikke tilgjengelige.');return;}
  const lock=buildingLock(kind,hallLevel,region.coastal);if(lock){feedback(lock,'LÅST');return;}
  if(!hasFunds(costs[kind])){feedback(`Krever ${formatCost(costs[kind])}.`,'MANGLER RESSURSER');return;}
- selectEntity(workers);buildMode=kind;buildRotation=0;orderMode=null;
+ cancelMode();selectEntity(workers);buildMode=kind;buildRotation=0;orderMode=null;
  $('cancel-command').classList.remove('hidden');$('mode-message').classList.remove('hidden');
- $('mode-message').textContent=`PLASSER ${BUILDINGS[kind].name.toUpperCase()}${['brickWall','gate'].includes(kind)?' · R ROTER':''} · ESC AVBRYT`;
- placementMarker.scaling.set(['brickWall','gate'].includes(kind)?8:6.5,1,['brickWall','gate'].includes(kind)?1.4:6.5);placementMarker.rotation.y=buildRotation;
- placementMarker.isVisible=true;feedback(BUILDINGS[kind].description,'BYGGING');
+ createBuildPreview(kind);
+ updateBuildPreview(pickTerrain()??camera.target);
+ feedback(BUILDINGS[kind].description,'BYGGING');
 }
 function tryPlaceBuilding(point:Vector3){
- if(!buildMode)return;const kind=buildMode;const problem=placementProblem(kind,point);
- if(problem){feedback(problem,'UGYLDIG PLASSERING');return;}
- if(!hasFunds(costs[kind])){feedback('Ikke nok ressurser.');return;}
- pay(costs[kind]);const e=createStructure(kind,point.x,point.z);e.root.rotation.y=buildRotation;
+ if(!buildMode||!gameStarted||paused||gameEnded)return;
+ const kind=buildMode,area=snapBuilding(kind,point.x,point.z,buildRotation);
+ const problem=placementProblem(kind,point);
+ if(problem){feedback(problem,'UGYLDIG PLASSERING');updateBuildPreview(point);return;}
+ pay(costs[kind]);const e=createStructure(kind,area.x,area.z);e.root.rotation.y=buildRotation;
  e.construction={remaining:BUILDINGS[kind].seconds,total:BUILDINGS[kind].seconds};
  e.root.scaling.y=.35;feedback(`${BUILDINGS[kind].name} bygges.`, 'BYGGESTART');cancelMode();selectEntity(e);renderHUD();
 }
 function cancelConstruction(e:Entity){if(!e.construction||!isBuildingKind(e.kind))return;refund(costs[e.kind],.75);entities.delete(e.id);e.root.dispose(false,false);selectEntity(first('workers'));feedback('Bygging avbrutt. 75% refundert.');renderHUD();}
+function troopCapacity(){return Math.min(armyLimit,8+4*[...entities.values()].filter(e=>e.kind==='house'&&ready(e)).length);}
 function trainTroop(e:Entity,kind:TroopKind){
  if(!gameStarted||paused||gameEnded||!ready(e)||!isBuildingKind(e.kind))return;
  if(!BUILDINGS[e.kind].producer?.includes(kind))return;
  if((e.queue?.length??0)>=queueLimit){feedback('Produksjonskøen er full.');return;}
  const committed=[...entities.values()].filter(e=>e.team==='ally'&&isTroopKind(e.kind)).length+[...entities.values()].reduce((n,e)=>n+(e.queue?.length??0),0);
- if(committed>=armyLimit){feedback('Maks 40 tropper, inkludert produksjonskøer.');return;}
+ if(committed>=troopCapacity()){feedback(`Boligplass ${troopCapacity()}/${armyLimit}. Bygg et House for 4 ekstra plasser.`);return;}
  const def=TROOPS[kind];if(!hasFunds(def.cost)){feedback(`Krever ${formatCost(def.cost)}.`,'MANGLER RESSURSER');return;}
  pay(def.cost);(e.queue??=[]).push({kind,remaining:def.seconds,total:def.seconds});feedback(`${def.name} lagt i kø.`,'REKRUTTERING');renderActions();renderHUD();
 }
@@ -687,7 +689,7 @@ function destroyEntity(e:Entity){
   if(killedSelected){selectedId=null;selectEntity(first('hero')??first('guard')??first('workers')??first('base'));}
   if(kind==='rift'){renderObjectives();checkVictory();return;}
   if(kind==='hero'||kind==='base'){loseGame(kind==='hero'?'The Warden has fallen.':'The Command Hearth has been destroyed.');return;}
-  if(kind==='workers')feedback('Your Pathfinder squad has been defeated.','UNIT LOST');
+  if(kind==='workers')feedback('Your Worker support unit has been defeated.','UNIT LOST');
   if(kind==='guard')feedback('A Royal Guard has fallen.','UNIT LOST');
   if(kind==='enemy')feedback('Corrupted raider defeated.','ENEMY DEFEATED');
 }
@@ -818,6 +820,56 @@ function spawnWave(dt:number){
 }
 const placementMarker=box(undefined,0,.15,0,1,.2,1,material('place green','#7fe3ac','#2b9972',.40));
 placementMarker.isPickable=false;placementMarker.isVisible=false;
+let buildPreviewRoot:TransformNode|null=null,buildGrid:Mesh|null=null;
+let buildPreviewPaints:StandardMaterial[]=[];
+function disposeBuildPreview(){
+ buildPreviewRoot?.dispose(false,false);buildPreviewRoot=null;
+ buildGrid?.dispose();buildGrid=null;
+ for(const paint of buildPreviewPaints)paint.dispose(false,false);
+ buildPreviewPaints=[];
+}
+function createBuildPreview(kind:BuildKind){
+ disposeBuildPreview();
+ buildPreviewRoot=new TransformNode('building-preview',scene);
+ const paints=new Map<StandardMaterial,StandardMaterial>();
+ for(const mesh of art.building(buildPreviewRoot,kind)){
+   mesh.isPickable=false;mesh.metadata={preview:true};
+   const original=mesh.material as StandardMaterial;
+   let paint=paints.get(original);
+   if(!paint){
+     paint=new StandardMaterial('preview/'+original.name,scene);
+     paint.diffuseColor=original.diffuseColor.clone();paint.specularColor=original.specularColor.clone();
+     // Share textures; material cloning would duplicate procedural textures on every preview.
+     paint.diffuseTexture=original.diffuseTexture;paint.bumpTexture=original.bumpTexture;
+     paint.alpha=.45;paint.disableDepthWrite=true;paints.set(original,paint);
+   }
+   mesh.material=paint;
+ }
+ buildPreviewPaints=[...paints.values()];
+ const [width,depth]=footprintSize(kind);
+ for(const [x,z] of footprintCells({x:0,z:0,width,depth})){
+   const tile=box(buildPreviewRoot,x,.09,z,GRID_SIZE-.08,.04,GRID_SIZE-.08,material('preview cell clear','#7fe3ac','#2b9972',.25));
+   tile.metadata={preview:true,previewCell:true};tile.isPickable=false;
+ }
+ const lines:Vector3[][]=[];
+ for(let x=-40;x<=40;x+=GRID_SIZE)lines.push([v3(x,-30,.045),v3(x,30,.045)]);
+ for(let z=-30;z<=30;z+=GRID_SIZE)lines.push([v3(-40,z,.045),v3(40,z,.045)]);
+ const grid=MeshBuilder.CreateLineSystem('construction grid',{lines},scene);
+ grid.color=tint('#a8cebb');grid.alpha=.25;grid.isPickable=false;buildGrid=grid;
+}
+function updateBuildPreview(point?:Vector3){
+ if(!buildMode||!buildPreviewRoot)return;
+ buildPreviewRoot.setEnabled(!!point);placementMarker.isVisible=!!point;
+ if(!point){$('mode-message').textContent='Pek på kartet for å plassere · ESC / høyreklikk avbryt';return;}
+ const area=snapBuilding(buildMode,point.x,point.z,buildRotation);
+ buildPreviewRoot.position.set(area.x,0,area.z);buildPreviewRoot.rotation.y=buildRotation;
+ const problem=placementProblem(buildMode,v3(area.x,area.z));
+ const paint=problem?material('preview cell blocked','#e77e80','#9e3333',.40):material('preview cell clear','#7fe3ac','#2b9972',.25);
+ for(const mesh of buildPreviewRoot.getChildMeshes())if(mesh.metadata?.previewCell)mesh.material=paint;
+ for(const paint of buildPreviewPaints)paint.emissiveColor=problem?new Color3(.35,.03,.03):new Color3(.03,.12,.08);
+ placementMarker.position.set(area.x,.065,area.z);placementMarker.scaling.set(area.width,.15,area.depth);placementMarker.rotation.y=0;placementMarker.material=paint;
+ $('mode-message').textContent=`${BUILDINGS[buildMode].name} · ${area.width/GRID_SIZE} × ${area.depth/GRID_SIZE} ruter · ${problem??'Klikk for å bygge'} · R roter · ESC / høyreklikk avbryt`;
+}
 function animateWorld(dt:number){
   const rift=first('rift');
   if(rift?.visual){
@@ -870,7 +922,7 @@ function renderHUD() {
   $('army-value').textContent=String([...entities.values()].filter(e=>e.team==='ally'&&isTroopKind(e.kind)).length).padStart(2,'0');
   $('hero-hp').style.width=((first('hero')?.hp??0)/300*100)+'%';
   $('workers-hp').style.width=((first('workers')?.hp??0)/190*100)+'%';
-  $('company-count').textContent=`${[...entities.values()].filter(e=>e.team==='ally' && (e.kind==='hero'||e.kind==='workers'||isTroopKind(e.kind))).length} UNITS`;
+  $('company-count').textContent=`${[...entities.values()].filter(e=>e.team==='ally'&&isTroopKind(e.kind)).length}/${troopCapacity()} TROOPS`;
   ($('hero-card') as HTMLButtonElement).disabled=!first('hero');
   ($('workers-card') as HTMLButtonElement).disabled=!first('workers');
   $('food-value').textContent=Math.floor(food).toString();
@@ -920,8 +972,8 @@ function showHelp(){
     `<p>Your first mission introduces the four pillars of Arise: <strong>gather, build, recruit, conquer.</strong></p>
     <ul><li><strong>Select:</strong> left-click units or use <kbd>1</kbd> for the hero and <kbd>2</kbd> for the workers.</li>
     <li><strong>Command:</strong> right-click ground to move; right-click trees or crystals with workers selected to harvest; right-click enemies with soldiers selected to attack.</li>
-    <li><strong>Construct:</strong> select workers and press <kbd>B</kbd> for the full building menu. Dock must stand on the northern shoreline; Fish Trap must stand in water. Upgrade the Town Hall to level 3 to unlock Market Place.</li>
-    <li><strong>Recruit:</strong> select a military building to queue troops (maximum 5 per building, 40 troops total). Train two Royal Guards to break the rift shield. Build Farms for food. Select all troops with <kbd>3</kbd>.</li>
+    <li><strong>Construct:</strong> select workers and press <kbd>B</kbd> for the full building menu. Affordable buildings show a translucent model and their full reserved grid footprint. Green means clear; red explains a blocked placement. Left-click to place, R to rotate, Esc or right-click to cancel. No resources are spent until placement. Dock must stand on the northern shoreline; Fish Trap must stand in water. Upgrade the Town Hall to level 3 to unlock Market Place.</li>
+    <li><strong>Recruit:</strong> select a military building to queue troops (maximum 5 per building; 8 troop spaces initially, +4 per completed House, maximum 40). Train two Royal Guards to break the rift shield. Build Farms for food and a Kitchen to prepare field rations. Select all troops with <kbd>3</kbd>.</li>
     <li><strong>Lead:</strong> select the Warden and press <kbd>Q</kbd> for Rally Cry. Use <kbd>W A S D</kbd> to pan, mouse wheel to zoom, <kbd>Space</kbd> to refocus, <kbd>P</kbd> to pause.</li></ul>
     <p>On touch devices, select a unit and use the action bar's <strong>Move</strong>, <strong>Attack</strong> or <strong>Harvest</strong> buttons, then tap the destination.</p>`,
     [{label:'UNDERSTOOD',run:closeModal}]);
@@ -1036,10 +1088,7 @@ scene.onPointerObservable.add((info)=>{
         tooltip.style.left=(ev.clientX+8)+'px';tooltip.style.top=(ev.clientY-90)+'px';
       }else tooltip.classList.add('hidden');
     }
-    if(buildMode){
-      const at=pickTerrain();
-      if(at){placementMarker.position.set(at.x,.13,at.z);const valid=!placementProblem(buildMode,at);placementMarker.material=valid?material('place green','#7fe3ac','#2b9972',.40):material('place invalid','#e77e80','#9e3333',.45);}
-    }
+    if(buildMode)updateBuildPreview(pickTerrain());
     return;
   }
   if(info.type!==PointerEventTypes.POINTERUP || !pointerStart)return;
@@ -1048,6 +1097,7 @@ scene.onPointerObservable.add((info)=>{
   if(!gameStarted||paused||gameEnded)return;
   const point=pickTerrain(),target=pickEntity(),acting=selected();
   if(start.button===2){
+    if(buildMode){cancelMode();return;}
     if(acting && acting.team==='ally'&&acting.speed>0)issueOrder(acting,target,point);
     return;
   }
@@ -1093,7 +1143,7 @@ window.addEventListener('keydown',(ev)=>{
   if(key==='1')selectEntity(first('hero'));
   if(key==='2')selectEntity(first('workers'));
   if(key==='q'&&selected()?.kind==='hero')activateRally();
-  if(key==='r'&&buildMode&&['brickWall','gate'].includes(buildMode)){buildRotation=(buildRotation+Math.PI/2)%Math.PI;placementMarker.rotation.y=buildRotation;return;}
+  if(key==='r'&&buildMode){buildRotation=(buildRotation+Math.PI/2)%(2*Math.PI);updateBuildPreview(pickTerrain()??buildPreviewRoot?.position);return;}
   if(key==='b'&&(selected()?.kind==='workers'||selected()?.kind==='base'))showBuildMenu();
   if(key==='t'&&selected()?.kind==='workers')startBuilding('tower');
   if(key==='y'&&selected()?.kind==='workers')startBuilding('sanctuary');
@@ -1150,6 +1200,7 @@ function showRegions(){
 }
 function loadRegion(id:number,start:boolean){
  const found=REGIONS.find(r=>r.id===id);if(!found)return;
+ cancelMode();
  region=found;seed=region.seed;gameStarted=false;paused=false;gameEnded=false;
  for(const e of entities.values())e.root.dispose(false,false);entities.clear();
  for(const p of projectiles)p.mesh.dispose();projectiles.length=0;
@@ -1315,6 +1366,7 @@ loadRegion(1,false);
 engine.runRenderLoop(()=>{
   const dt=Math.min(engine.getDeltaTime()/1000,.05);
   animateWorld(dt);
+  if(buildMode&&!paused)updateBuildPreview(pickTerrain());
   if(gameStarted&&!paused&&!gameEnded){
     keyboardPan(dt);
     updateGame(dt);

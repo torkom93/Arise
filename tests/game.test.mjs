@@ -19,15 +19,15 @@ globalThis.HTMLInputElement=class {};globalThis.HTMLTextAreaElement=class {};
 const stored=new Map();globalThis.localStorage={getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v)};
 const dir=await mkdtemp(join(root,'.simulation-test-'));
 let source=await readFile(join(root,'src/main.ts'),'utf8');
-source=source.replace("import './style.css';",'').replace("from './content'","from './content.mjs'").replace("from './art'","from './art.mjs'").replace("from './professions'","from './professions.mjs'").replace("from './defences'","from './defences.mjs'").replace(/Engine, Scene,/, 'NullEngine, Scene,').replace("from '@babylonjs/core'",`from '${import.meta.resolve('@babylonjs/core')}'`).replace(/const engine = new Engine\(canvas, true, \{ preserveDrawingBuffer: false, stencil: true \}\);/,"const engine = new NullEngine({renderWidth:800,renderHeight:600,textureSize:512,deterministicLockstep:true,lockstepMaxSteps:4});");
+source=source.replace("import './style.css';",'').replace("from './placement'","from './placement.mjs'").replace("from './content'","from './content.mjs'").replace("from './art'","from './art.mjs'").replace("from './professions'","from './professions.mjs'").replace("from './defences'","from './defences.mjs'").replace(/Engine, Scene,/, 'NullEngine, Scene,').replace("from '@babylonjs/core'",`from '${import.meta.resolve('@babylonjs/core')}'`).replace(/const engine = new Engine\(canvas, true, \{ preserveDrawingBuffer: false, stencil: true \}\);/,"const engine = new NullEngine({renderWidth:800,renderHeight:600,textureSize:512,deterministicLockstep:true,lockstepMaxSteps:4});");
 source=source.slice(0,source.indexOf('engine.runRenderLoop('));
-source+=`\nexport {loadRegion,createStructure,createTroop,placementProblem,trainTroop,cancelTraining,upgradeHall,upgradeBuilding,startResearch,trade,updateProduction,updateEconomy,updateUnit,order,startBuilding,tryPlaceBuilding,damage,missionState,selectEntity,first,entities,scene,engine,createRawResource,createEnemy,toggleGate,moveToward,autoCombat,solidBarrier,barrierShape,startCraft,updateCrafting,cancelCraft,useCraftedItem,acceptQuest,questProgress,turnInQuest,showVinnie,showProfessions,showJournal,closeModal,tree,ground};\nexport const inspect=()=>({wood,stone,food,hallLevel,region,research:{...research},guardsTrained,gameEnded,materials:{...materials},professions:{...professions},quests:structuredClone(quests),activeCraft:activeCraft?{...activeCraft}:null,crafted:{...crafted},gathered:{...gathered}});\nexport function fund(w=10000,s=10000,f=10000){wood=w;stone=s;food=f;}
+source+=`\nexport {loadRegion,createStructure,createTroop,placementProblem,trainTroop,cancelTraining,upgradeHall,upgradeBuilding,startResearch,trade,updateProduction,updateEconomy,updateUnit,order,startBuilding,tryPlaceBuilding,damage,missionState,selectEntity,first,entities,scene,engine,createRawResource,createEnemy,toggleGate,moveToward,autoCombat,solidBarrier,barrierShape,startCraft,updateCrafting,cancelCraft,useCraftedItem,acceptQuest,questProgress,turnInQuest,showVinnie,showProfessions,showJournal,closeModal,tree,ground,updateBuildPreview,cancelMode,troopCapacity};\nexport const inspectPreview=()=>({root:buildPreviewRoot,grid:buildGrid,paints:buildPreviewPaints,mode:buildMode});\nexport const inspect=()=>({wood,stone,food,hallLevel,region,research:{...research},guardsTrained,gameEnded,materials:{...materials},professions:{...professions},quests:structuredClone(quests),activeCraft:activeCraft?{...activeCraft}:null,crafted:{...crafted},gathered:{...gathered}});\nexport function fund(w=10000,s=10000,f=10000){wood=w;stone=s;food=f;}
 export function stock(data){Object.assign(materials,data);}
 export function skill(key,xp){professions[key]=xp;}
 export function rotate(angle){buildRotation=angle;}\n`;
 await writeFile(join(dir,'main.mjs'),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
 await writeFile(join(dir,'content.mjs'),ts.transpileModule(await readFile(join(root,'src/content.ts'),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
-for(const name of ['professions','defences','art'])await writeFile(join(dir,name+'.mjs'),ts.transpileModule((await readFile(join(root,'src/'+name+'.ts'),'utf8')).replace("from '@babylonjs/core'",`from '${import.meta.resolve('@babylonjs/core')}'`),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
+for(const name of ['professions','defences','art','placement'])await writeFile(join(dir,name+'.mjs'),ts.transpileModule((await readFile(join(root,'src/'+name+'.ts'),'utf8')).replace("from '@babylonjs/core'",`from '${import.meta.resolve('@babylonjs/core')}'`),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
 let game;
 try{game=await import(pathToFileURL(join(dir,'main.mjs')));}catch(e){await rm(dir,{recursive:true,force:true});throw e;}
 function fresh(id=1){game.loadRegion(id,true);game.fund();}
@@ -39,7 +39,7 @@ test('hall upgrades consume once, take time and gate Market Place',()=>{
  assert.match(game.placementProblem('market',pos),/3/);
  game.upgradeHall();assert.equal(game.inspect().wood,9780);game.upgradeHall();assert.equal(game.inspect().wood,9780);
  game.updateProduction(24);assert.equal(game.inspect().hallLevel,1);game.updateProduction(1);assert.equal(game.inspect().hallLevel,2);
- assert.match(game.placementProblem('market',pos),/3/);game.upgradeHall();game.updateProduction(40);assert.equal(game.inspect().hallLevel,3);assert.equal(game.placementProblem('market',pos),null);
+ assert.match(game.placementProblem('market',pos),/3/);game.upgradeHall();game.updateProduction(40);assert.equal(game.inspect().hallLevel,3);assert.equal(game.placementProblem('market',clearSite('market')),null);
 });
 test('training reserves cost, queues to 5, completes actual troop, refunds last queued',()=>{
  fresh();const b=game.createStructure('barracks',-14,-6);game.selectEntity(b);
@@ -94,7 +94,7 @@ test('all ten region configurations can complete the actual four-objective victo
  for(let id=1;id<=10;id++){
   fresh(id);const workers=game.first('workers');
   for(const [kind,seconds] of [['wood',6],['stone',4]]){const deposit=game.first(kind);workers.root.position.copyFrom(deposit.root.position);workers.targetId=deposit.id;game.updateUnit(workers,seconds);}
-  game.startBuilding('barracks');const site=workers.root.position.clone();site.set(-16,0,-3);game.tryPlaceBuilding(site);const barracks=game.first('barracks');assert.ok(barracks);game.updateProduction(14);
+  game.startBuilding('barracks');const site=clearSite('barracks');game.tryPlaceBuilding(site);const barracks=game.first('barracks');assert.ok(barracks);game.updateProduction(14);
   game.trainTroop(barracks,'guard');game.trainTroop(barracks,'guard');game.updateProduction(8);game.updateProduction(8);
   game.damage(game.first('rift'),5000,game.first('guard'));assert.equal(game.inspect().gameEnded,true,`region ${id}`);assert.ok(game.missionState().every(o=>o.done),`region ${id}`);
  }
@@ -166,4 +166,53 @@ test('terrain texture, shallow relief and tree picking survive region reload',()
  const wood=game.first('wood');const meshes=wood.root.getChildMeshes().filter(m=>m.isPickable);assert.ok(meshes.length>0);assert.ok(meshes.every(m=>m.metadata.entityId===wood.id));
  const texture=terrain.material.diffuseTexture;game.loadRegion(2,true);assert.notEqual(terrain.material.diffuseTexture,texture);game.loadRegion(1,true);assert.equal(terrain.material.diffuseTexture,texture);
  assert.ok(game.scene.meshes.filter(m=>m.metadata?.decoration).every(m=>!m.isPickable));
+});
+
+test('preview is a translucent non-interactive model; cancel and reload release it without charging',()=>{
+ fresh();const before=game.inspect().wood,count=game.entities.size;
+ game.startBuilding('barracks');let preview=game.inspectPreview();
+ assert.equal(game.entities.size,count);assert.equal(game.inspect().wood,before);
+ assert.ok(preview.root.getChildMeshes().some(m=>m.metadata.preview&&!m.metadata.previewCell));
+ assert.ok(preview.root.getChildMeshes().every(m=>!m.isPickable));
+ assert.ok(preview.paints.every(m=>m.alpha===.45));
+ game.cancelMode();assert.ok(!game.inspectPreview().root,'Preview root should be cleared');assert.ok(!game.inspectPreview().grid,'Preview grid should be cleared');assert.equal(game.inspect().wood,before);
+ game.startBuilding('house');const old=game.inspectPreview().root;game.loadRegion(2,true);
+ assert.equal(old.isDisposed(),true);assert.ok(!game.inspectPreview().root,'Preview root should be cleared');
+ game.fund(0,0,0);game.startBuilding('barracks');assert.ok(!game.inspectPreview().root,'Preview root should be cleared');
+});
+function clearSite(kind){
+ const point=game.first('base').root.position.clone();
+ for(let x=-36;x<=30;x+=2)for(let z=-26;z<=26;z+=2){point.set(x,0,z);if(!game.placementProblem(kind,point))return point.clone();}
+ assert.fail('No clear site for '+kind);
+}
+test('placement commits the displayed snapped position once and reserves the whole construction footprint',()=>{
+ fresh();game.startBuilding('barracks');const point=clearSite('barracks');point.x+=.12;point.z+=.12;
+ game.updateBuildPreview(point);const expected=game.inspectPreview().root.position.clone();const wood=game.inspect().wood;
+ game.tryPlaceBuilding(point);const building=game.first('barracks');assert.ok(building.construction);
+ assert.equal(building.root.position.x,expected.x);assert.equal(building.root.position.z,expected.z);
+ assert.equal(game.inspect().wood,wood-100);assert.ok(!game.inspectPreview().root,'Preview root should be cleared');
+ game.tryPlaceBuilding(point);assert.equal(game.inspect().wood,wood-100);
+ assert.match(game.placementProblem('house',building.root.position),/opptatt/);
+ const partial=building.root.position.clone();partial.x+=6;assert.ok(game.placementProblem('house',partial));
+});
+test('invalid placement and funds lost during preview never spend or create a building',()=>{
+ fresh();game.startBuilding('house');const before=game.inspect().wood;
+ const edge=game.first('base').root.position.clone();edge.set(39,0,0);
+ assert.match(game.placementProblem('house',edge),/kartkanten/);game.tryPlaceBuilding(edge);assert.ok(!game.first('house'),'No House should have been created');assert.equal(game.inspect().wood,before);
+ const clear=clearSite('house');game.fund(0,0,0);game.updateBuildPreview(clear);game.tryPlaceBuilding(clear);
+ assert.ok(!game.first('house'),'No House should have been created');assert.equal(game.inspect().wood,0);assert.ok(game.inspectPreview().root);
+ game.cancelMode();
+});
+test('houses grant troop spaces only when complete and kitchen gates actual ration cooking',()=>{
+ fresh();assert.equal(game.troopCapacity(),8);
+ const house=game.createStructure('house',-10,0);house.construction={remaining:10,total:10};assert.equal(game.troopCapacity(),8);
+ game.updateProduction(10);assert.equal(game.troopCapacity(),12);
+ const barracks=game.createStructure('barracks',10,0);
+ for(let i=0;i<12;i++)game.createTroop('guard',20,i);
+ game.trainTroop(barracks,'guard');assert.equal(barracks.queue,undefined);
+ game.stock({herbs:10});assert.equal(game.startCraft('rations'),false);
+ const kitchen=game.createStructure('kitchen',-10,10);kitchen.construction={remaining:12,total:12};assert.equal(game.startCraft('rations'),false);
+ game.updateProduction(12);assert.equal(game.startCraft('rations'),true);game.updateCrafting(5);
+ assert.equal(game.inspect().materials.fieldRations,1);
+ const food=game.inspect().food;assert.equal(game.useCraftedItem('fieldRations'),true);assert.equal(game.inspect().food,food+40);
 });

@@ -143,3 +143,26 @@ Denne utvidelsen bruker den identifiserte, tilgjengelige prototypepakken, ikke e
 - Balanse, kartspesifikke oppdrag og samlet 15–20 minutters spilletid krever faktisk spilletesting.
 - Den brede Babylon-importen gir en relativt stor JS-pakke. Ytelse og lasting er ikke profilert.
 - Ingen flerspiller, kontoer, kjøp eller backend. Dette er en lokal prototype for videre utvikling i VS Code.
+
+
+## Grid construction update
+
+Workers are one controllable support unit represented by three characters. They remain grouped for movement, gathering and construction commands; individual worker control is not a requirement.
+
+Choose an affordable building in the build menu (`B`). Its actual model appears at 45% opacity above a 2-world-unit grid. The reserved footprint includes space for the model and its working area. `R` rotates by 90 degrees, left-click confirms, and Escape or right-click cancels. All occupied cells must clear existing buildings (including construction sites), resources and units. The whole footprint must also satisfy terrain and map bounds. Green/red feedback includes the reason a site is blocked. Funds are checked again at confirmation and charged once; preview and cancellation are free. Preview models cannot be selected and are removed when changing modes or regions.
+
+House: 45 timber + 10 aether, 10 seconds. Each completed House adds four troop spaces to the Town Hall's initial eight, capped at 40. Existing troops and queued recruitment reserve spaces. Losing housing blocks new recruitment; existing troops and paid queues are preserved. These are initial balance values.
+
+Kitchen: 70 timber + 25 aether, 12 seconds. Select a completed Kitchen and choose Cooking to access the existing field-ration recipe. A completed Kitchen is required to cook rations. Rations currently consume food and herbs; wildlife and raw meat are not implemented by this update.
+
+### Proposed next steps — not implemented here
+
+- Stage Level 1 objectives: establish supplies and shelter, recruit or build defenses first, secure resources, then finish the settlement. Keep the requested six Houses, two Guard Towers, wall, Blacksmith, Kitchen and Stable as the settlement checklist, and playtest whether the full checklist fits 15–20 minutes. A Stable can be an optional mastery goal if it crowds the tutorial.
+- Worker support loop: travel → gather into a shared cargo capacity → deliver to Town Hall or Storehouse → resume the assigned site. Use the same support unit for building, pausing its previous task and resuming afterwards. Display task, cargo and idle/blocked status; avoid micromanaging each character.
+- Add deer or boar as explicit hunting targets and separate raw meat from prepared food. The hero or soldiers hunt, Workers collect the carcass, and the Kitchen converts delivered meat into food. Cats and frogs remain ambient wildlife; a rare bear is an optional dangerous encounter. Limit carcass rewards to one claim.
+- Validate that placing buildings preserves usable walking routes and exits. This update checks placement occupancy; it does not add general building-aware group pathfinding.
+- Essential first-mission buildings: Town Hall, Houses, Barracks, a food source, Kitchen and basic defenses. Add a Storehouse when carrying/delivery is implemented. Blacksmith and Stable provide later tactical choices; advanced research and siege can wait.
+
+Validation: automated simulation tests use Babylon NullEngine and do not prove browser rendering quality. Run `npm test` and `npm run build`; visually inspect the translucent model, grid, rotations and placement feedback in a WebGL browser before release. No live Sites deployment is part of this change.
+
+The full headless simulation suite runs 40 checks and initializes many Babylon scenes. The test command allows a 4 GB Node heap for this suite; the browser runtime is unchanged. At this update, all 40 checks and the TypeScript/Vite build pass. Browser visual validation is pending because the available remote browser could not connect to the local development server.
